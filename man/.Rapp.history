@@ -1,0 +1,8 @@
+DynaMO
+DynaMO()
+ls()
+get.reads()
+?get.reads
+library(DynaMO)
+DynaMO()
+?DynaMO

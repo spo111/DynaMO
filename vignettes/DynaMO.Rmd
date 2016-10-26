@@ -27,29 +27,30 @@ Here we introduce a method, called dynamic motif occupancy (DynaMO), which exten
 Two types of inputs are required: (1) PSFMs or consensus sequences which represent specific sequences TFs recognize; (2) alignments of ChIP-seq reads. We used ChIP-seq of histone modification as an example but the types of epigenomic data can be extended to histone occupancy, DNase sensitivity and so on. TF motif matrices or consensus sequences are mapped to the corresponding genome using the CisGenome software package to obtain TF motif sites.
 
 Load the package as follows:
-```{r, eval=FALSE}
-library(DynaMO,quietly=T)
+```{r, eval=TRUE}
+library(DynaMO,quietly=TRUE)
 ```
 
 The paths of read alignment files from multiple samples of one chromatin surrogate are stored in a data.frame object. Users can either read a local file storing the paths or directly input the paths in R. Paths for different epigenetic surrogates are combined in a list. The format of read alignment can be bam or txt. A txt file contains three columns separated by tab. The first is the chromosome id, the second is the coordinate and the third is the strand ("+" or "-"). In this example, we directly input the paths in R.
-```{r, eval=FALSE}
+```{r, eval=TRUE}
 histonelist<-vector("list",length=2)
-histonelist[[1]]<-data.frame(c(system.file("extdata","read1.txt",package="DynaMO",mustWork=TRUE),
+histonelist[[1]]<-data.frame(c(system.file("extdata","read1.txt"                                           ,package="DynaMO",mustWork=TRUE),
 system.file("extdata","read2.txt",package="DynaMO",mustWork=TRUE)))
-histonelist[[2]]<-data.frame(c(system.file("extdata","read3.txt",package="DynaMO",mustWork=TRUE),
+histonelist[[2]]<-data.frame(c(system.file("extdata",                                           "read3.txt",package="DynaMO",mustWork=TRUE),
 system.file("extdata","read4.txt",package="DynaMO",mustWork=TRUE)))
 ```
 
 The paths of motif sites files are stored in a vector object. Users can directly input the paths in R. Motif sites are stored in txt files. A txt file contains four columns separated by tab. The first is the motif note, the second is the chromosome id, the third is the left coordinate and the fourth is the right coordinate.In this example, we input 5 example motifs in R.
-```{r, eval=FALSE}
+```{r, eval=TRUE}
 motif<-vector(length=5)
 for(i in 1:5){
-	motif[i]<-system.file("extdata",paste("motif_",i,".txt",sep=""),package="DynaMO",mustWork=T)
+	motif[i]<-system.file("extdata",paste("motif_",i,".txt",sep=""),
+	                      package="DynaMO",mustWork=TRUE)
 }
 ```
 
 Next, we need to detect peaks from each sample of aligned reads. Users can either call peaks elsewhere and input the peak regions in R or directly call peaks in R. In this example, we use BayesPeak to call peaks.
-```{r, eval=FALSE}
+```{r, eval=TRUE}
 library(BayesPeak)
 peak<-vector("list",length=2)
 for(i in 1:2){
@@ -60,16 +61,17 @@ for(i in 1:2){
         tempreads2<-cbind(tempreads1[,1:3],tempreads1[,5])
         colnames(tempreads2)<-c("chr","start","end","strand")
         temppeak<-summarize.peaks(bayespeak(tempreads2))
-        peak[[i]][[j]]<-GRanges(seqnames=Rle(as.character(space(temppeak))),
-                      ranges=IRanges(start=start(temppeak),end=end(temppeak)))
+        peak[[i]][[j]]<-GRanges(seqnames=Rle(as.character
+                                             (space(temppeak))),                      ranges=IRanges(start=start(temppeak),end=end(temppeak)))
     }
 }
 ```
 
 With all input data, we can run DynaMO directly.
-```{r, eval=FALSE}
-DynaMO(readlist=histonelist,peak=peak,motif=motif,mode="l",core=2,readsmem=T,readlen=150,
-readformat="txt",motiflen=300,motifbin=20,cluster=0,fdrcut=0.01)
+```{r, eval=TRUE}
+DynaMO(readlist=histonelist,peak=peak,motif=motif,mode="l",
+       core=2,readsmem=TRUE,readlen=150,readformat="txt",
+       motiflen=300,motifbin=20,cluster=0,fdrcut=0.01)
 ```
 
 DynaMO will automatically write the results in the current directory. Normalized read counts at motif sites are written in files named "motif_[motif index]_readcount.txt". Each row is a motif site and named by the index of motif sites. Each column is a sample. False discovery rates are written in files named "motif_[motif index]_fdr.txt". Rows are motif sites with the same order as readcount files and columns represent samples. Inner products are written in files named "motif_[motif index]_innerprod.txt". Rows are motif sites with the same order as readcount files and columns represent samples. Clustering information is written in a file named "motif_filter_reads_cluster.txt". Each row is a motif site and each column is a sample. The last three columns are cluster id, motif id and motif site id. Motif enrichment information is written in a file named "motif_cluster_enrichment.txt". Each row represents a motif site and each column represents either counts of motif sites, fold changes, p values and adjusted p values from one sample.
@@ -92,7 +94,7 @@ Alternatively, the DynaMO analysis can also be divided into separate steps and u
 
 Same as the previous session, we prepare the data input and get three objects, histonelist, motif and peak. Next, we input some basic parameters. "markernum" is the number of chromatin surrogates in the study. "time" is the number of sequencing samples for each surrogates. Motif sites are extended by the length of "motiflen" from the centers and each motif site is divided into consecutive bins. "motifbin" is the length of base pairs for each bin. 
 
-```{r, eval=FALSE}
+```{r, eval=TRUE}
 markernum<-length(histonelist)
 time<-nrow(histonelist[[1]])
 motifnum<-length(motif)
@@ -106,7 +108,7 @@ motifname<-1:5
 
 Then we read aligned reads and store the locations in GRanges objects in R. If the memory is small, users can skip this step and just use the read list object.
 
-```{r, eval=FALSE}
+```{r, eval=TRUE}
 reads<-vector("list",length=markernum)
 for(i in 1:markernum){
     reads[[i]]<-vector("list",length=time)
@@ -118,7 +120,7 @@ for(i in 1:markernum){
 
 Next we read motif sites and store the locations in GRanges objects in R. We also calculated the number of bins in each motif site.
 
-```{r, eval=FALSE}
+```{r, eval=TRUE}
 motifseg<-vector("list",length=motifnum)
 get.motifmulti<-function(x){
     result=get.motif(motif[x],motiflen)
@@ -132,15 +134,18 @@ motifbinnum<-(end(motifseg[[1]])[1]-start(motifseg[[1]])[1]+1)/motifbin
 
 TFs usually bind to open chromatin regions. Therefore, a simple way to categorize motif sites is to examine whether a motif site is overlapping or close to a peak of chromatin surrogates. So we first identify motif sites which overlap peaks.
 
-```{r, eval=FALSE}
+```{r, eval=TRUE}
 motifpeakoverlap<-vector("list",length=markernum)
 for(markcount in 1:markernum){
-    motifpeakoverlap[[markcount]]<-vector("list",length=length(motifseg))
+    motifpeakoverlap[[markcount]]<-vector("list",
+                                          length=length(motifseg))
     for(i in 1:length(motifseg)){
-        motifpeakoverlap[[markcount]][[i]]<-countOverlaps(motifseg[[i]],peak[[markcount]][[1]])
+        motifpeakoverlap[[markcount]][[i]]<-countOverlaps(
+          motifseg[[i]],peak[[markcount]][[1]])
         if(time>1){
             for(j in 2:time){
-                motifpeakoverlap[[markcount]][[i]]<-cbind(motifpeakoverlap[[markcount]][[i]],
+                motifpeakoverlap[[markcount]][[i]]<-cbind(
+                  motifpeakoverlap[[markcount]][[i]],
                 countOverlaps(motifseg[[i]],peak[[markcount]][[j]]))
             } 
         }
@@ -150,7 +155,7 @@ for(markcount in 1:markernum){
 
 Sometimes we need to evaluate hundreds of motifs and each motif has hundreds of thousands of motif sites. In this case, evaluating motif sites which are close to chromatin open regions will save a lot of time and still keep high sensitivity.
 
-```{r, eval=FALSE}
+```{r, eval=TRUE}
 motifsegs<-vector("list",length=motifnum)
 motifid0<-vector("list",length=motifnum)
 for(i in 1:motifnum){
@@ -167,7 +172,7 @@ for(i in 1:motifnum){
 
 Otherwise, we will examine all motif sites.
 
-```{r, eval=FALSE}
+```{r, eval=TRUE}
 motifsegs<-vector("list",length=motifnum)
 motifid0<-vector("list",length=motifnum)
 motifsegs<-motifseg
@@ -178,10 +183,11 @@ for(i in 1:motifnum){
 
 Another important feature of motif sites is the signal intensity of chromatin surrogates at motif sies. 
 
-```{r, eval=FALSE}
+```{r, eval=TRUE}
 histonemotifsegreads<-vector("list",length=markernum)
 for(markcount in 1:markernum){
-  histonemotifsegreads[[markcount]]<-countmotifsegreads(reads[[markcount]],motifsegs,readlen,
+  histonemotifsegreads[[markcount]]<-countmotifsegreads(
+    reads[[markcount]],motifsegs,readlen,
   core,format,motifid0)
 }
 ```
@@ -190,7 +196,7 @@ for(markcount in 1:markernum){
 
 Based on the characterization of motif sites, we next select positive, negative and background motif sites for training random forest models. Positive and negative motif sites are used for training random forest models and background motif sites are used for estimating the null distribution.
 
-```{r, eval=FALSE}
+```{r, eval=TRUE}
 motifid1<-motifRFid(motifsegs,histonemotifsegreads,motifpeakoverlap,motifid0)
 ```
 
@@ -198,27 +204,29 @@ motifid1<-motifRFid(motifsegs,histonemotifsegreads,motifpeakoverlap,motifid0)
 
 We first divide each motif site into consecutive bins and store the locations in GRanges objects. Next, we count signals of surrogates at each bin.
 
-```{r, eval=FALSE}
+```{r, eval=TRUE}
 get.motifbintemp<-function(motifseg,bin=motifbin){
     temp<-get.motifbin(motifseg,bin)
     return(temp)
 }
 motifbintemp<-mclapply(motifsegs,get.motifbintemp,mc.cores=core)
 for(markcount in 1:markernum){
-    motifbincount(motifbintemp,reads[[markcount]],core,readlen,format,markcount)
+    motifbincount(motifbintemp,reads[[markcount]],core,
+                  readlen,format,markcount)
 }
 ```
 
 Similarly, we perform the same procedure for motif sites selected for random forest modeling.
 
-```{r, eval=FALSE}
+```{r, eval=TRUE}
 motifsegrf<-vector("list",length=motifnum)
 for(i in 1:motifnum){
     motifsegrf[[i]]<-vector("list",length=time)
     for(j in 1:time){
         motifsegrf[[i]][[j]]<-vector("list",length=3)
         for(k in 1:3){
-            motifsegrf[[i]][[j]][[k]]<-motifseg[[i]][motifid1[[i]][[j]][[k]]]}
+            motifsegrf[[i]][[j]][[k]]<-motifseg[[i]][
+              motifid1[[i]][[j]][[k]]]}
     }
 }
 get.motifbinv2<-function(motifseg,bin=motifbin){
@@ -239,15 +247,17 @@ get.motifbinv2<-function(motifseg,bin=motifbin){
           endmatrix[,motifbinnum]<-endtemp
           for(j in 2:motifbinnum){
             startmatrix[,j]<-startmatrix[,(j-1)]+bin
-            endmatrix[,(motifbinnum-j+1)]<-endmatrix[,(motifbinnum-j+2)]-bin
+            endmatrix[,(motifbinnum-j+1)]<-endmatrix[,                                                     (motifbinnum-j+2)]-bin
           }
-          motifbinGR[[i]][[timenum]]<-GRanges(seqnames=Rle(rep(chrtemp,each=motifbinnum)),
+          motifbinGR[[i]][[timenum]]<-GRanges(seqnames=Rle(
+            rep(chrtemp,each=motifbinnum)),
           ranges=IRanges(start=c(t(startmatrix)),end=c(t(endmatrix))))}}
       return(motifbinGR)
     }
 motifbinrftemp<-mclapply(motifsegrf,get.motifbinv2,mc.cores=core)
 for(markcount in 1:markernum){
-      motifbincount(motifbinrftemp,reads[[markcount]],core,readlen,format,markcount)
+      motifbincount(motifbinrftemp,reads[[markcount]],core,
+                    readlen,format,markcount)
 }    
 ```
 
@@ -255,10 +265,10 @@ for(markcount in 1:markernum){
 
 After we prepare all input data, we next calculate the FDRs and inner products of motif sites. An important parameter to adjust is fdrcut. Motif sites with FDR less than fdrcut are used as reference to calculate inner products. Here we use 0.01.
 
-```{r, eval=FALSE}
+```{r, eval=TRUE}
 motifrandomforestfdr<-motifbinRFfdr(motifid1,motifsegs,markernum,motifbinnum)
-RFinnerprod<-innerprocal(motifrandomforestfdr[[2]],0.01,histonemotifsegreads,1:markernum,
-motifbinnum) 
+RFinnerprod<-innerprocal(motifrandomforestfdr[[2]],0.01,
+                         histonemotifsegreads,1:markernum,motifbinnum) 
 ```
 
 We can use FDR to select positive motif sites and use inner products to further rank motif sites when FDRs are same.
@@ -267,19 +277,22 @@ We can use FDR to select positive motif sites and use inner products to further 
 
 When multiple samples are provided, we can cluster positive motif sites based on the patterns of signals of chromatin surrogates at motif sites. In the previous session, we have already calculated signal intensity of chromatin surrogates and store it in the histonemotifsegreads object. We now need to combine the signals at positive motif sites from different motifs. First, we find the motif sites with FDR less than fdrcut and combine read counts at these motif sites from all motifs in a large matrix.
 
-```{r, eval=FALSE}
+```{r, eval=TRUE}
 fdrcut<-0.00001
 motiffdrread<-matrix(ncol=time*markernum)
 for(i in 1:motifnum){
   temp<-t(scale(t(histonemotifsegreads[[1]][[i]])))
   if(markernum>1){
     for(markcount in 2:markernum){
-      temp<-cbind(temp,t(scale(t(histonemotifsegreads[[markcount]][[i]]))))
+      temp<-cbind(temp,t(scale(t(histonemotifsegreads
+                                 [[markcount]][[i]]))))
     }
   }
   rownames(temp)<-paste(i,rownames(temp),sep="_")
-  motifrandomforestfdr[[2]][[i]][is.na(motifrandomforestfdr[[2]][[i]])]=1
-  numtest<-apply(motifrandomforestfdr[[2]][[i]],1,function(x){if(min(x)<=fdrcut){return(1)}
+  motifrandomforestfdr[[2]][[i]][is.na(motifrandomforestfdr
+                                       [[2]][[i]])]=1
+  numtest<-apply(motifrandomforestfdr[[2]][[i]],1,
+                 function(x){if(min(x)<=fdrcut){return(1)}
     else{return(0)}})
   motiffdrread<-rbind(motiffdrread,temp[numtest==1,])
 }
@@ -288,24 +301,23 @@ motiffdrread<-na.exclude(motiffdrread)
 
 Next, we perform Kmeans clustering. Users can either do automatic Kmeans or choose a specific value for the number of clusters. Here we use fpc to automatically generate the number of clusters.
 
-```{r, eval=FALSE}
+```{r, eval=TRUE}
 library(fpc)
 cluster<-0
 #cluster=0 means automatic clustering
 if(cluster==0){
-        tempread<-motiffdrread[sample(1:nrow(motiffdrread),min(c(nrow(motiffdrread),10000))),]
-        tempcls<-pamk(tempread,2:20,usepam=F)
+        tempread<-motiffdrread[sample(1:nrow(motiffdrread),                                      min(c(nrow(motiffdrread),10000))),]
+        tempcls<-pamk(tempread,2:20,usepam=FALSE)
         clsnum<-tempcls$nc
         }else{
             clsnum<-cluster
         }
         motifk<-kmeans(motiffdrread,centers=clsnum,10,10)
         motiffdrread1<-cbind(motiffdrread,motifk$cluster)
-        tempname<-matrix(as.numeric(unlist(strsplit(rownames(motiffdrread1),split="_"))),
-                         ncol=2,byrow=T)
+        tempname<-matrix(as.numeric(unlist(strsplit(
+          rownames(motiffdrread1),split="_"))),ncol=2,byrow=TRUE)
         motiffdrread1<-cbind(motiffdrread1,tempname)
-        colnames(motiffdrread1)<-c(paste(rep(paste("marker",1:markernum,sep=""),each=time),
-                                         1:time,sep="_"),
+        colnames(motiffdrread1)<-c(paste(rep(paste("marker",                           1:markernum,sep=""),each=time),1:time,sep="_"),
         "cluster","motifname","motiflocid")
 ```
 
@@ -313,9 +325,10 @@ The object motiffdrread1 contains read counts of chromatin surrogates at motif s
 
 Next, we perform fisher.exact test to find motifs with motif sites enriched in the clusters.
 
-```{r, eval=FALSE}
+```{r, eval=TRUE}
 motiffdrclstest=motifclstest(motiffdrread1,1:motifnum)
-colnames(motiffdrclstest)=paste(rep(paste("cluster",1:clsnum)),rep(c("count","ratio","p-value","padj"),each=4))
+colnames(motiffdrclstest)=paste(rep(paste("cluster",1:clsnum))
+                            ,rep(c("count","ratio","p-value","padj"),each=4))
 ```
 
 Motifs enriched in any of the clusters are predicted to be important and the averaged pattern of read counts in the cluster which a motif is enriched reflects when the TF is mainly functional.

@@ -46,11 +46,16 @@ Zheng Kuang
 #Prepare bin count
 library(BayesPeak)
 histonelist=vector("list",length=2)
-histonelist[[1]]=data.frame(c(system.file("extdata","read1.txt",package="DynaMO",mustWork=TRUE),system.file("extdata","read2.txt",package="DynaMO",mustWork=TRUE)))
-histonelist[[2]]=data.frame(c(system.file("extdata","read3.txt",package="DynaMO",mustWork=TRUE),system.file("extdata","read4.txt",package="DynaMO",mustWork=TRUE)))
+histonelist[[1]]=data.frame(c(system.file("extdata","read1.txt"
+,package="DynaMO",mustWork=TRUE),system.file("extdata","read2.txt"
+,package="DynaMO",mustWork=TRUE)))
+histonelist[[2]]=data.frame(c(system.file("extdata","read3.txt"
+,package="DynaMO",mustWork=TRUE),system.file("extdata","read4.txt"
+,package="DynaMO",mustWork=TRUE)))
 motif=vector(length=5)
 for(i in 1:5){
-	motif[i]=system.file("extdata",paste("motif_",i,".txt",sep=""),package="DynaMO",mustWork=TRUE)
+	motif[i]=system.file("extdata",paste("motif_",i,".txt",sep="")
+	,package="DynaMO",mustWork=TRUE)
 }
 peak=vector("list",length=2)
 for(i in 1:2){
@@ -61,7 +66,9 @@ for(i in 1:2){
         tempreads2=cbind(tempreads1[,1:3],tempreads1[,5])
         colnames(tempreads2)=c("chr","start","end","strand")
         temppeak=summarize.peaks(bayespeak(tempreads2))
-        peak[[i]][[j]]=GRanges(seqnames=Rle(as.character(space(temppeak))),ranges=IRanges(start=start(temppeak),end=end(temppeak)))
+        peak[[i]][[j]]=GRanges(seqnames=Rle(as.character(space(
+        temppeak))),ranges=IRanges(start=start(temppeak),end=
+        end(temppeak)))
     }
 }
 DynaMO(histonelist,peak,motif,"l",1,readsmem=TRUE,150,"txt",250,20,0,0.01)
@@ -86,7 +93,8 @@ for(markcount in 1:2){
     for(i in 1:length(motifseg)){
         motifpeakoverlap[[markcount]][[i]]=countOverlaps(motifseg[[i]],peak[[markcount]][[1]])
             for(j in 2:2){
-                motifpeakoverlap[[markcount]][[i]]=cbind(motifpeakoverlap[[markcount]][[i]],countOverlaps(motifseg[[i]],peak[[markcount]][[j]]))
+                motifpeakoverlap[[markcount]][[i]]=cbind(motifpeakoverlap[[markcount]]
+                [[i]],countOverlaps(motifseg[[i]],peak[[markcount]][[j]]))
             }
     }
 }
@@ -97,7 +105,8 @@ for(i in 1:5){
 }
 histonemotifsegreads=vector("list",length=2)
 for(markcount in 1:2){
-    histonemotifsegreads[[markcount]]=countmotifsegreads(reads[[markcount]],motifsegs,150,1,"txt",motifid0)
+    histonemotifsegreads[[markcount]]=countmotifsegreads(reads[[markcount
+    ]],motifsegs,150,1,"txt",motifid0)
 }
 motifid1=motifRFid(motifsegs,histonemotifsegreads,motifpeakoverlap,motifid0)
 #motifbinRFfdr

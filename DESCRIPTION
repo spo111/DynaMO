@@ -1,14 +1,14 @@
 Package: DynaMO
 Type: Package
 Title: DynaMO predicts spatiotemporal binding of transcription factors
-Version: 0.1.0
+Version: 0.99.0
 Date: 2015-07-23
 Author: Zheng Kuang, Hongkai Ji
 Maintainer: Zheng Kuang <kuangzheng04@gmail.com>
-Depends: R (>= 3.1), GenomicAlignments, randomForest, fpc
+Depends: R (>= 3.2), GenomicAlignments, randomForest, fpc
 Suggests: BayesPeak, knitr
 VignetteBuilder: knitr
-biocViews: ChIPseq, Transcription factor activities, motif
+biocViews: ChIPSeq, Transcription, Epigenetics, GeneRegulation
 Description: DynaMO predicts transcription factor (TF) binding sites by
     learning the spatial distribution of epigenomic data with a random forest
     model. In a time-course experiment, DynaMO also predicts the temporal

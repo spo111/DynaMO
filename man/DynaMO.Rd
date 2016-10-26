@@ -11,7 +11,7 @@ predicted binding sites. DynaMO identifies important TFs in a dynamic process.
 }
 \usage{
 DynaMO(readlist, peak, motif, mode="l", core=1, readsmem=TRUE, readlen=150,
-readformat="bam", motiflen=300, motifbin=20, cluster = 0, fdrcut=0.01,batch=T)
+readformat="bam", motiflen=300, motifbin=20, cluster = 0, fdrcut=0.01,batch=TRUE)
 }
 \arguments{
   \item{readlist}{
@@ -97,11 +97,16 @@ Zheng Kuang
 #Import reads, motif sites and call peaks first
 library(BayesPeak)
 histonelist=vector("list",length=2)
-histonelist[[1]]=data.frame(c(system.file("extdata","read1.txt",package="DynaMO",mustWork=TRUE),system.file("extdata","read2.txt",package="DynaMO",mustWork=TRUE)))
-histonelist[[2]]=data.frame(c(system.file("extdata","read3.txt",package="DynaMO",mustWork=TRUE),system.file("extdata","read4.txt",package="DynaMO",mustWork=TRUE)))
+histonelist[[1]]=data.frame(c(system.file("extdata","read1.txt"
+,package="DynaMO",mustWork=TRUE),system.file("extdata","read2.txt"
+,package="DynaMO",mustWork=TRUE)))
+histonelist[[2]]=data.frame(c(system.file("extdata","read3.txt"
+,package="DynaMO",mustWork=TRUE),system.file("extdata","read4.txt"
+,package="DynaMO",mustWork=TRUE)))
 motif=vector(length=5)
 for(i in 1:5){
-	motif[i]=system.file("extdata",paste("motif_",i,".txt",sep=""),package="DynaMO",mustWork=TRUE)
+	motif[i]=system.file("extdata",paste("motif_",i,".txt",sep=""
+	),package="DynaMO",mustWork=TRUE)
 }
 peak=vector("list",length=2)
 for(i in 1:2){
@@ -112,11 +117,14 @@ for(i in 1:2){
         tempreads2=cbind(tempreads1[,1:3],tempreads1[,5])
         colnames(tempreads2)=c("chr","start","end","strand")
         temppeak=summarize.peaks(bayespeak(tempreads2))
-        peak[[i]][[j]]=GRanges(seqnames=Rle(as.character(space(temppeak))),ranges=IRanges(start=start(temppeak),end=end(temppeak)))
+        peak[[i]][[j]]=GRanges(seqnames=Rle(as.character(space
+        (temppeak))),ranges=IRanges(start=start(temppeak),
+        end=end(temppeak)))
     }
 }
 #DynaMO function
-DynaMO(histonelist,peak,motif,"l",2,readsmem=TRUE,150,"txt",250,20,0,0.01)
+DynaMO(histonelist,peak,motif,"l",2,readsmem=TRUE,150,"txt",
+250,20,0,0.01)
 }
 
 \keyword{ DynaMO }

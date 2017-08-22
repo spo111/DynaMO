@@ -7,7 +7,7 @@ Count reads overlapping consecutive bins at motif sites
 Count numbers of reads overlapping consecutive bins at motif sites.
 }
 \usage{
-motifbincount(motifbin, reads, core, seqL, format = "bam", name)
+motifbincount(motifbin, reads, core, seqL, format = "bam", name, ratio)
 }
 \arguments{
   \item{motifbin}{
@@ -31,6 +31,9 @@ The format of aligned reads. The format can be a .txt file or a .bam file.
 The id of histone modification or other marker. For example, for the first
 histone modification, name equals to 1. For the second histone modification,
 name equals to 2.
+}
+  \item{ratio}{
+A vector of ratios normalized by total number of reads across samples.
 }
 }
 \details{
@@ -58,6 +61,6 @@ read1<-get.reads(readfile,150,"txt")
 readfile<-system.file("extdata","motif_1.txt",package="DynaMO",mustWork=TRUE)
 motif1<-get.motif(readfile,300)
 motifbin1<-get.motifbin(motif1,20)
-motifbincount(list(motifbin1),list(read1),1,150,"txt",1)
+motifbincount(list(motifbin1),list(read1),1,150,"txt",1,c(1,1,1,1))
 }
 \keyword{ motifbincount }

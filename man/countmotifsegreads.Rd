@@ -8,7 +8,7 @@ Count numbers of reads overlapping motif sites.
 }
 \usage{
 countmotifsegreads(read, segmentfile, seqL=150, core=1, format="bam",
-histonemotifRFid)
+histonemotifRFid, readsmem)
 }
 \arguments{
   \item{read}{
@@ -33,6 +33,10 @@ The format of aligned reads. The format can be a .txt file or a .bam file.
 The list object where each element contains the indexes of motif sites for
 read counting. The indexes are also used to name the motif sites.
 }
+  \item{readsmem}{
+A logcial. If TRUE, aligned reads are imported once and kept in memory. It
+requires large memory but saves time.
+}
 }
 \details{
 The function calculates the numbers of reads overlapping motif sites. Motif
@@ -41,9 +45,10 @@ aligned reads are provided, read counts are normalized by total number of reads
 across samples.
 }
 \value{
-A list object where each element is a matrix of normalized read counts at motif
-sites. Each row is the read counts at one motif site and each column is one
-sample.
+A list object with two elements. The first is a list object where each element is
+a matrix of normalized read counts at motif sites. Each row is the read counts at
+one motif site and each column is one sample. The second is a vector of ratios
+normalized by total number of reads across samples.
 }
 \author{
 Zheng Kuang
@@ -54,7 +59,7 @@ read1<-get.reads(readfile,150,"txt")
 readfile<-system.file("extdata","motif_1.txt",package="DynaMO",mustWork=TRUE)
 motif1<-get.motif(readfile,300)
 motifreads<-countmotifsegreads(list(read1),list(motif1),150,1,"txt",
-list(1:length(motif1)))
+list(1:length(motif1)),T)
 }
 % Add one or more standard keywords, see file 'KEYWORDS' in the
 % R documentation directory.

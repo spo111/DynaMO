@@ -15,7 +15,8 @@ readformat="bam", motiflen=300, motifbin=20, cluster = 0, fdrcut=0.01,batch=TRUE
 }
 \arguments{
   \item{readlist}{
-A data.frame object where each row is a path to a file storing aligned reads.
+A list of data.frame objects where each row is a path to a file storing aligned
+reads. Each data.frame stores one chromatin mark.
 }
   \item{peak}{
 A list object with length equal to the number of histone markers. Each element

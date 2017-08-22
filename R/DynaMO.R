@@ -1,14 +1,15 @@
 
 get.reads<-function(file,seqL=150,readformat="bam"){
+    shift=round(seqL/2)
     if(readformat=="bam"){
       reads<-readGAlignments(as.character(file))
       reads1<-reads[strand(reads)=="+"]
       reads2<-reads[strand(reads)=="-"]
-      res<-GRanges(seqnames=c(seqnames(reads1),seqnames(reads2)),ranges=c(IRanges(start=start(reads1),width=seqL),IRanges(end=end(reads2),width=seqL)),strand=c(strand(reads1),strand(reads2)))
+      res<-GRanges(seqnames=c(seqnames(reads1),seqnames(reads2)),ranges=c(IRanges(start=start(reads1)+shift,width=1),IRanges(end=end(reads2)-shift,width=1)),strand=c(strand(reads1),strand(reads2)))
     }else{
         reads<-read.table(as.character(file),sep="\t",col.names=c("chrom","position","strand"))
         reads2<-split(reads,reads$strand)
-        res<-GRanges(seqnames=Rle(c(as.character(reads2[["+"]]$chrom),as.character(reads2[["-"]]$chrom))),ranges=c(IRanges(start=reads2[["+"]]$position,width=seqL),IRanges(end=reads2[["-"]]$position,width=seqL)),strand=Rle(c("+","-"),sapply(reads2,nrow)))
+        res<-GRanges(seqnames=Rle(c(as.character(reads2[["+"]]$chrom),as.character(reads2[["-"]]$chrom))),ranges=c(IRanges(start=reads2[["+"]]$position+shift,width=1),IRanges(end=reads2[["-"]]$position-shift,width=seqL)),strand=Rle(c("+","-"),sapply(reads2,nrow)))
     }
     return(res)
 }
@@ -30,110 +31,126 @@ get.motifbin<-function(motifseg,bin=50){
     endmatrix=matrix(NA,nrow=motiflocnum,ncol=motifbinnum)
     startmatrix[,1]=starttemp
     endmatrix[,motifbinnum]=endtemp
-    for(i in 2:motifbinnum){
+    if(motifbinnum>1){
+    	for(i in 2:motifbinnum){
         startmatrix[,i]=startmatrix[,(i-1)]+bin
         endmatrix[,(motifbinnum-i+1)]=endmatrix[,(motifbinnum-i+2)]-bin
     }
-    motifbinGR=GRanges(seqnames=Rle(rep(chrtemp,each=motifbinnum)),ranges=IRanges(start=c(t(startmatrix)),end=c(t(endmatrix))))
+    }
+        motifbinGR=GRanges(seqnames=Rle(rep(chrtemp,each=motifbinnum)),ranges=IRanges(start=c(t(startmatrix)),end=c(t(endmatrix))))
     return(motifbinGR)
 }
-countmotifsegreads<-function(read,segmentfile,seqL=150,core=1,format="bam",histonemotifRFid){
+countmotifsegreads<-function(read,segmentfile,seqL=150,core=1,format="bam",histonemotifRFid,readsmem){
   countmotifsegreadsv1<-function(listfile,segmentfile,seqL,core,format="bam",histonemotifRFid){
     segnum=length(segmentfile)
-    result<-vector("list",segnum)
-    for(i in 1:segnum){
-      result[[i]]<-matrix(NA,nrow=length(segmentfile[[i]]),ncol=nrow(listfile))
-    }
-    totalreads<-vector(length=nrow(listfile))
-    for(i in 1:nrow(listfile)){
-      temp<-get.reads(listfile[i,],seqL,format)
-      totalreads[i]=length(temp)
-      temp1=vector("list",length=core)
-      if(core==1){
-        temp1[[1]]=temp
-        rm(temp)
-      }else{
-        readcount=totalreads[i]
-        readseg=round(readcount/core)
-        for(j in 1:(core-1)){
-          temp1[[j]]=temp[((j-1)*readseg+1):(j*readseg)]
-        }
-        temp1[[core]]=temp[((core-1)*readseg+1):readcount]
-        rm(temp)
+    markernum=length(listfile)
+    time=nrow(listfile[[1]])
+    result<-vector("list",markernum)
+    totalreads<-vector(length=markernum*time)
+    for(markcount in 1:markernum){
+      result[[markcount]] <- vector("list",segnum)
+      for(i in 1:segnum){
+        result[[markcount]][[i]]<-matrix(NA,nrow=length(segmentfile[[i]]),ncol=time)
       }
-      for(j in 1:segnum){
-        countreads=function(x){
-          tempresult=try(countOverlaps(segmentfile[[j]],temp1[[x]]))
-          return(tempresult)
-        }
-        tempbincount=mclapply(1:core,countreads,mc.cores=core)
-        tempbincount1=tempbincount[[1]]
-        if(core>1){
-          for(k in 2:core){
-            tempbincount1=as.numeric(tempbincount1)+as.numeric(tempbincount[[k]])
+      for(i in 1:nrow(listfile[[markcount]])){
+        temp<-get.reads(listfile[[markcount]][i,],seqL,format)
+        totalreads[i+(markcount-1)*time]=length(temp)
+        temp1=vector("list",length=core)
+        if(core==1){
+          temp1[[1]]=temp
+          rm(temp)
+        }else{
+          readcount=totalreads[i+(markcount-1)*time]
+          readseg=round(readcount/core)
+          for(j in 1:(core-1)){
+            temp1[[j]]=temp[((j-1)*readseg+1):(j*readseg)]
           }
+          temp1[[core]]=temp[((core-1)*readseg+1):readcount]
+          rm(temp)
         }
-        rm(tempbincount)
-        result[[j]][,i]=tempbincount1
+        for(j in 1:segnum){
+          countreads=function(x){
+            tempresult=try(countOverlaps(segmentfile[[j]],temp1[[x]]))
+            return(tempresult)
+          }
+          tempbincount=mclapply(1:core,countreads,mc.cores=core)
+          tempbincount1=tempbincount[[1]]
+          if(core>1){
+            for(k in 2:core){
+              tempbincount1=as.numeric(tempbincount1)+as.numeric(tempbincount[[k]])
+            }
+          }
+          rm(tempbincount)
+          result[[markcount]][[j]][,i]=tempbincount1
+        }
       }
     }
     ratio=totalreads/mean(totalreads)
-    for(j in 1:segnum){
-      for(i in 1:nrow(listfile)){
-        result[[j]][,i]=try(round(log2(result[[j]][,i]/ratio[i]+1),5),silent=TRUE)
-      }
-      if(nrow(result[[j]]>0))
-      {rownames(result[[j]])=try(histonemotifRFid[[j]],silent=TRUE)
-      }    }
-    return(result)
-  }
+    for(markcount in 1:markernum){
+      for(j in 1:segnum){
+        for(i in 1:time){
+          result[[markcount]][[j]][,i]=try(round(log2(result[[markcount]][[j]][,i]/ratio[i+(markcount-1)*time]+1),2))
+        }
+        if(nrow(result[[markcount]][[j]]>0))
+        {rownames(result[[markcount]][[j]])=histonemotifRFid[[j]]
+        }  }}
+    return(list(result,ratio))
+    }
   countmotifsegreadsv2<-function(reads,segmentfile,core,histonemotifRFid){
     segnum=length(segmentfile)
-    result<-vector("list",segnum)
-    for(i in 1:segnum){
-      result[[i]]<-matrix(NA,nrow=length(segmentfile[[i]]),ncol=length(reads))
-    }
-    totalreads<-sapply(reads,length)
-    for(i in 1:length(reads)){
-      temp1=vector("list",length=core)
-      if(core==1){
-        temp1[[1]]=reads[[i]]
-      }else{
-        readseg=round(totalreads[i]/core)
-        for(j in 1:(core-1)){
-          temp1[[j]]=reads[[i]][((j-1)*readseg+1):(j*readseg)]
-        }
-        temp1[[core]]=reads[[i]][((core-1)*readseg+1):totalreads[i]]
+    markernum=length(reads)
+    result<-vector("list",markernum)
+    time<-length(reads[[1]])
+    totalreads<-vector(length=markernum*time)
+    for(markcount in 1:markernum){
+      result[[markcount]] <- vector("list",segnum)
+      for(i in 1:segnum){
+        result[[markcount]][[i]]<-matrix(NA,nrow=length(segmentfile[[i]]),ncol=time)
       }
-      for(j in 1:segnum){
-        countreads=function(x){
-          tempresult=try(countOverlaps(segmentfile[[j]],temp1[[x]]))
-          return(tempresult)
-        }
-        tempbincount=mclapply(1:core,countreads,mc.cores=core)
-        tempbincount1=as.numeric(tempbincount[[1]])
-        if(core>1){
-          for(k in 2:core){
-            tempbincount1=as.numeric(tempbincount1)+as.numeric(tempbincount[[k]])
+      totalreads[((markcount-1)*time+1):(markcount*time)]<-sapply(reads[[markcount]],length)
+      for(i in 1:length(reads[[markcount]])){
+        temp1=vector("list",length=core)
+        if(core==1){
+          temp1[[1]]=reads[[markcount]][[i]]
+        }else{
+          readseg=round(totalreads[i+(markcount-1)*time]/core)
+          for(j in 1:(core-1)){
+            temp1[[j]]=reads[[markcount]][[i]][((j-1)*readseg+1):(j*readseg)]
           }
+          temp1[[core]]=reads[[markcount]][[i]][((core-1)*readseg+1):totalreads[i+(markcount-1)*time]]
         }
-        rm(tempbincount)
-        result[[j]][,i]=tempbincount1
+        for(j in 1:segnum){
+          countreads=function(x){
+            tempresult=try(countOverlaps(segmentfile[[j]],temp1[[x]]))
+            return(tempresult)
+          }
+          tempbincount=mclapply(1:core,countreads,mc.cores=core)
+          tempbincount1=as.numeric(tempbincount[[1]])
+          if(core>1){
+            for(k in 2:core){
+              tempbincount1=as.numeric(tempbincount1)+as.numeric(tempbincount[[k]])
+            }
+          }
+          rm(tempbincount)
+          result[[markcount]][[j]][,i]=tempbincount1
+        }
+        rm(temp1)
+        gc()
       }
-      rm(temp1)
-      gc()
     }
     ratio=totalreads/mean(totalreads)
-    for(j in 1:segnum){
-      for(i in 1:length(totalreads)){
-        result[[j]][,i]=try(round(log2(result[[j]][,i]/ratio[i]+1),5))
-      }
-      if(nrow(result[[j]]>0))
-      {rownames(result[[j]])=histonemotifRFid[[j]]
-      }  }
-    return(result)
+    for(markcount in 1:markernum){
+      for(j in 1:segnum){
+        for(i in 1:time){
+          result[[markcount]][[j]][,i]=try(round(log2(result[[markcount]][[j]][,i]/ratio[i+(markcount-1)*time]+1),2))
+        }
+        if(nrow(result[[markcount]][[j]]>0))
+        {rownames(result[[markcount]][[j]])=histonemotifRFid[[j]]
+        }  }
+    }
+    return(list(result,ratio))
   }
-    if(is.list(read)){
+    if(readsmem){
         result=countmotifsegreadsv2(read,segmentfile,core,histonemotifRFid)
     }else{
         result=countmotifsegreadsv1(read,segmentfile,seqL,core,format,histonemotifRFid)
@@ -142,7 +159,7 @@ countmotifsegreads<-function(read,segmentfile,seqL=150,core=1,format="bam",histo
 }
 
 
-motifbincount=function(motifbin,reads,core=1,seqL=150,format="bam",name){
+motifbincount=function(motifbin,reads,core=1,seqL=150,format="bam",name,ratio){
     segnum=length(motifbin)
     if(is.list(reads)){
         time=length(reads)
@@ -189,7 +206,7 @@ motifbincount=function(motifbin,reads,core=1,seqL=150,format="bam",name){
                           tempbincount1=tempbincount1+tempbincount[[l]]}
                       }
                       rm(tempbincount)
-                      tempbincount1=round(log2(tempbincount1+1),5)
+                      tempbincount1=round(log2(tempbincount1/ratio[i]+1),2)
                     }else{tempbincount1=0}
                     write.table(tempbincount1,file=paste("motifbin_",name,"_",i,"_",j,"_",k,".txt",sep=""),quote=FALSE,sep="\t",row.names=FALSE,col.names=FALSE)
                 }
@@ -207,7 +224,7 @@ motifbincount=function(motifbin,reads,core=1,seqL=150,format="bam",name){
                     }
                   }
                   rm(tempbincount)
-                  tempbincount1=round(log2(tempbincount1+1),5)
+                  tempbincount1=round(log2(tempbincount1/ratio[i]+1),2)
                 }else{tempbincount1=0}
                 write.table(tempbincount1,file=paste("motifbin_",name,"_",i,"_",j,".txt",sep=""),quote=FALSE,sep="\t",row.names=FALSE,col.names=FALSE)
             }
@@ -330,7 +347,7 @@ motifbinRFfdr=function(histonemotifRFid,motifsegs,markernum,binnum){
             }
         }
         temprow=min(10000,nrow(tempbincounttotal[[1]]),nrow(tempbincounttotal[[2]]))
-        trainset=rbind(tempbincounttotal[[1]][sample(nrow(tempbincounttotal[[1]]),temprow),],tempbincounttotal[[2]][sample(nrow(tempbincounttotal[[2]]),temprow),])
+        trainset=rbind(as.matrix(tempbincounttotal[[1]][sample(nrow(tempbincounttotal[[1]]),temprow),]),as.matrix(tempbincounttotal[[2]][sample(nrow(tempbincounttotal[[2]]),temprow),]))
         trainresponse=c(rep(1,temprow),rep(0,temprow))
         motifbinrfmodeltotal=randomForest(x=trainset,y=factor(trainresponse))
         for(j in 1:segnum){
@@ -391,7 +408,7 @@ innerprocal=function(RFfdr,fdrcut=0.01,RFreads,name,binnum){
             tempbincountset=cbind(tempbincountset,tempmarkreads)
             tempbincountsetf=tempbincountset[tempfdr<fdrcut,]
             tempbincountsetf= tempbincountsetf[order(tempbincountsetf[,ncol(tempbincountsetf)],decreasing=TRUE),]
-            tempbincountsetf=tempbincountsetf[,1:(ncol(tempbincountsetf)-1)]
+            tempbincountsetf=as.matrix(tempbincountsetf[,1:(ncol(tempbincountsetf)-1)])
             if(nrow(tempbincountsetf)>100){
                 tempbincounttotal=rbind(tempbincounttotal, tempbincountsetf[sample(1:100,50),])
             }else if(nrow(tempbincountsetf)>50){
@@ -410,7 +427,7 @@ innerprocal=function(RFfdr,fdrcut=0.01,RFreads,name,binnum){
                 tempbincount=read.table(paste("motifbin_",namecount,"_",i,"_",j,".txt",sep=""),sep="\t")
                 tempbincount1=cbind(tempbincount1,matrix(tempbincount[,1],ncol=binnum,byrow=TRUE))
             }
-            tempbincountset=tempbincount1[,2:ncol(tempbincount1)]
+            tempbincountset=as.matrix(tempbincount1[,2:ncol(tempbincount1)])
             for(k in 1:nrow(tempbincountset)){
                 result[[j]][k,i]=sum(tempbinmean*tempbincountset[k,])
 
@@ -418,6 +435,27 @@ innerprocal=function(RFfdr,fdrcut=0.01,RFreads,name,binnum){
         }
     }
     return(result)
+}
+
+clsnumcount<-function(data){
+  x <- 2:10
+  y <- sapply(x, function(k) {
+    set.seed(12345)
+    mean(sapply(1:10,function(d) {
+      clu <- kmeans(data,k,iter.max = 100)$cluster
+      cluSS <- sum(sapply(unique(clu),function(i) {
+        sum(rowSums(sweep(data[clu==i,,drop=F],2,colMeans(data[clu==i,,drop=F]),"-")^2))
+      }))
+      1-cluSS/sum((sweep(data,2,colMeans(data),"-"))^2)
+    }))
+  })
+  y <- c(0,y)
+  x <- c(1,x)
+  clunum <- x[which.min(sapply(x, function(i) {
+    x2 <- pmax(0,x-i)
+    sum(lm(y~x+x2)$residuals^2)
+  }))]
+  return(clunum)
 }
 
 motifclstest<-function(motifcls,motifname){
@@ -443,125 +481,127 @@ motifclstest<-function(motifcls,motifname){
     return(motifclscount)
 }
 
-
-
-DynaMO<-function(readlist,peak,motif,mode="l",core=1,readsmem=TRUE,readlen=150,readformat="bam",motiflen=300,motifbin=20,cluster=0,fdrcut=0.01,batch=TRUE){
-  DynaMOs<-function(reads,peak,motifseg,core,readsmem,markernum,time,mode,format,motifbin,readlen,motifname){
-    motifnum=length(motifseg)
-    motifbinnum=(end(motifseg[[1]])[1]-start(motifseg[[1]])[1]+1)/motifbin
-    motifpeakoverlap=vector("list",length=markernum)
-    for(markcount in 1:markernum){
-      motifpeakoverlap[[markcount]]=vector("list",length=length(motifseg))
-      for(i in 1:length(motifseg)){
-        motifpeakoverlap[[markcount]][[i]]=data.matrix(countOverlaps(motifseg[[i]],peak[[markcount]][[1]]))
-        if(time>1){
-          for(j in 2:time){
-            motifpeakoverlap[[markcount]][[i]]=cbind(motifpeakoverlap[[markcount]][[i]],countOverlaps(motifseg[[i]],peak[[markcount]][[j]]))
-          }
+DynaMOs<-function(reads,peak,motifseg,core,readsmem,markernum,time,mode,format,motifbin,readlen,motifname){
+  motifnum=length(motifseg)
+  motifbinnum=(end(motifseg[[1]])[1]-start(motifseg[[1]])[1]+1)/motifbin
+  motifpeakoverlap=vector("list",length=markernum)
+  for(markcount in 1:markernum){
+    motifpeakoverlap[[markcount]]=vector("list",length=length(motifseg))
+    motifoverlap.multi=function(x){
+      temp=data.matrix(countOverlaps(motifseg[[x]],peak[[markcount]][[1]]))
+      if(time>1){
+        for(j in 2:time){
+          temp=cbind(temp,countOverlaps(motifseg[[x]],peak[[markcount]][[j]]))
         }
       }
-    }
-    print("motifpeakoverlap")
-    motifsegs=vector("list",length=motifnum)
-    motifid0=vector("list",length=motifnum)
-    if(mode=="l"){
-      motifsegs=motifseg
-      for(i in 1:motifnum){
-        motifid0[[i]]=1:length(motifsegs[[i]])
-      }
-    }else{
-      for(i in 1:motifnum){
-        temp=rowSums(motifpeakoverlap[[1]][[i]])
-        if(markernum>1){
-          for(motifcount in 2:markernum){
-            temp=temp+rowSums(motifpeakoverlap[[motifcount]][[i]])
-          }
-        }
-        motifid0[[i]]=which(temp>0)
-        motifsegs[[i]]=motifseg[[i]][motifid0[[i]]]
-      }
-    }
-    histonemotifsegreads=vector("list",length=markernum)
-    for(markcount in 1:markernum){
-      histonemotifsegreads[[markcount]]=countmotifsegreads(reads[[markcount]],motifsegs,readlen,core,format,motifid0)
-    }
-    print("motifsegreadcount")
-    motifid1=motifRFid(motifseg,histonemotifsegreads,motifpeakoverlap,motifid0)
-    print("motifRFid")
-    get.motifbintemp<-function(motifseg,bin=motifbin){
-      temp=get.motifbin(motifseg,bin)
       return(temp)
     }
-    motifbintemp=mclapply(motifsegs,get.motifbintemp,mc.cores=core)
-    print("motifsegbin")
-    for(markcount in 1:markernum){
-      motifbincount(motifbintemp,reads[[markcount]],core,readlen,format,markcount)
-    }
-    print("motifbinreadcount")
-    rm(motifbintemp)
-    motifsegrf=vector("list",length=motifnum)
-    for(i in 1:motifnum){
-      motifsegrf[[i]]=vector("list",length=time)
-      for(j in 1:time){
-        motifsegrf[[i]][[j]]=vector("list",length=3)
-        for(k in 1:3){
-          motifsegrf[[i]][[j]][[k]]=motifseg[[i]][motifid1[[i]][[j]][[k]]]}
-      }
-    }
-    get.motifbinv2<-function(motifseg,bin=motifbin){
-      time=length(motifseg)
-      segnum=length(motifseg[[1]])
-      motifbinGR=vector("list",length=time)
-      for(i in 1:time){
-        motifbinGR[[i]]=vector("list",length=segnum)
-        for(timenum in 1:segnum){
-          if(length(motifseg[[i]][[timenum]])>0){
-            chrtemp=as.character(seqnames(motifseg[[i]][[timenum]]))
-            starttemp=start(motifseg[[i]][[timenum]])
-            endtemp=end(motifseg[[i]][[timenum]])
-            motiflocnum=length(chrtemp)
-            motifbinnum=(endtemp[1]-starttemp[1]+1)/bin
-            startmatrix=matrix(NA,nrow=motiflocnum,ncol=motifbinnum)
-            endmatrix=matrix(NA,nrow=motiflocnum,ncol=motifbinnum)
-            startmatrix[,1]=starttemp
-            endmatrix[,motifbinnum]=endtemp
-            for(j in 2:motifbinnum){
-              startmatrix[,j]=startmatrix[,(j-1)]+bin
-              endmatrix[,(motifbinnum-j+1)]=endmatrix[,(motifbinnum-j+2)]-bin
-            }
-            motifbinGR[[i]][[timenum]]=GRanges(seqnames=Rle(rep(chrtemp,each=motifbinnum)),ranges=IRanges(start=c(t(startmatrix)),end=c(t(endmatrix))))}
-        }
-      }
-      return(motifbinGR)
-    }
-    motifbinrftemp=mclapply(motifsegrf,get.motifbinv2,mc.cores=core)
-    print("motifsegbinrf")
-    for(markcount in 1:markernum){
-      motifbincount(motifbinrftemp,reads[[markcount]],core,readlen,format,markcount)
-    }
-    print("motifbinreadcountrf")
-    motifrandomforestfdr=motifbinRFfdr(motifid1,motifsegs,markernum,motifbinnum)
-    print("motifrandomforestfdr")
-    for(i in 1:motifnum){
-      motifrandomforestfdr[[2]][[i]][is.na(motifrandomforestfdr[[2]][[i]])]=1
-      write.table(motifrandomforestfdr[[2]][[i]],paste("motif",motifname[i],"fdr.txt",sep="_"),quote=FALSE,sep="\t",row.names=FALSE,col.names=FALSE)
-    }
-    RFinnerprod=innerprocal(motifrandomforestfdr[[2]],0.01,histonemotifsegreads,1:markernum,motifbinnum)
-    print("RFinnerprod")
-    for(i in 1:motifnum){
-      write.table(RFinnerprod[[i]],paste("motif",motifname[i],"innerprod.txt",sep="_"),quote=FALSE,sep="\t",row.names=FALSE,col.names=FALSE)
-    }
-    for(i in 1:motifnum){
-      temp=t(scale(t(histonemotifsegreads[[1]][[i]])))
-      if(markernum>1){
-        for(markcount in 2:markernum){
-          temp=cbind(temp,t(scale(t(histonemotifsegreads[[markcount]][[i]]))))
-        }
-      }
-      write.table(round(temp,5),paste("motif_",motifname[i],"_readcount.txt",sep=""),sep="\t",row.names=TRUE,col.names=FALSE,quote=FALSE)
-    }
-    print("motifreadwrite")
+    motifpeakoverlap[[markcount]]=mclapply(1:motifnum,motifoverlap.multi,mc.cores=core)
   }
+  print("motifpeakoverlap")
+  motifsegs=vector("list",length=motifnum)
+  motifid0=vector("list",length=motifnum)
+  if(mode=="l"){
+    motifsegs=motifseg
+    for(i in 1:motifnum){
+      motifid0[[i]]=1:length(motifsegs[[i]])
+    }
+  }else{
+    for(i in 1:motifnum){
+      temp=rowSums(motifpeakoverlap[[1]][[i]])
+      if(markernum>1){
+        for(motifcount in 2:markernum){
+          temp=temp+rowSums(motifpeakoverlap[[motifcount]][[i]])
+        }
+      }
+      motifid0[[i]]=which(temp>0)
+      motifsegs[[i]]=motifseg[[i]][motifid0[[i]]]
+    }
+  }
+  temp=countmotifsegreads(reads,motifsegs,readlen,core,format,motifid0,readsmem)
+  histonemotifsegreads=temp[[1]]
+  ratio=temp[[2]]
+  print("motifsegreadcount")
+  motifid1=motifRFid(motifseg,histonemotifsegreads,motifpeakoverlap,motifid0)
+  print("motifRFid")
+  get.motifbintemp<-function(motifseg,bin=motifbin){
+    temp=get.motifbin(motifseg,bin)
+    return(temp)
+  }
+  motifbintemp=mclapply(motifsegs,get.motifbintemp,mc.cores=core)
+  print("motifsegbin")
+  for(markcount in 1:markernum){
+    motifbincount(motifbintemp,reads[[markcount]],core,readlen,format,markcount,ratio[((markcount-1)*time):(markcount*time)])
+  }
+  print("motifbinreadcount")
+  rm(motifbintemp)
+  motifsegrf=vector("list",length=motifnum)
+  for(i in 1:motifnum){
+    motifsegrf[[i]]=vector("list",length=time)
+    for(j in 1:time){
+      motifsegrf[[i]][[j]]=vector("list",length=3)
+      for(k in 1:3){
+        motifsegrf[[i]][[j]][[k]]=motifseg[[i]][motifid1[[i]][[j]][[k]]]}
+    }
+  }
+  get.motifbinv2<-function(motifseg,bin=motifbin){
+    time=length(motifseg)
+    segnum=length(motifseg[[1]])
+    motifbinGR=vector("list",length=time)
+    for(i in 1:time){
+      motifbinGR[[i]]=vector("list",length=segnum)
+      for(timenum in 1:segnum){
+        if(length(motifseg[[i]][[timenum]])>0){
+          chrtemp=as.character(seqnames(motifseg[[i]][[timenum]]))
+          starttemp=start(motifseg[[i]][[timenum]])
+          endtemp=end(motifseg[[i]][[timenum]])
+          motiflocnum=length(chrtemp)
+          motifbinnum=(endtemp[1]-starttemp[1]+1)/bin
+          startmatrix=matrix(NA,nrow=motiflocnum,ncol=motifbinnum)
+          endmatrix=matrix(NA,nrow=motiflocnum,ncol=motifbinnum)
+          startmatrix[,1]=starttemp
+          endmatrix[,motifbinnum]=endtemp
+          if(motifbinnum > 1){
+          	for(j in 2:motifbinnum){
+            startmatrix[,j]=startmatrix[,(j-1)]+bin
+            endmatrix[,(motifbinnum-j+1)]=endmatrix[,(motifbinnum-j+2)]-bin
+          }
+          }
+          motifbinGR[[i]][[timenum]]=GRanges(seqnames=Rle(rep(chrtemp,each=motifbinnum)),ranges=IRanges(start=c(t(startmatrix)),end=c(t(endmatrix))))}
+      }
+    }
+    return(motifbinGR)
+  }
+  motifbinrftemp=mclapply(motifsegrf,get.motifbinv2,mc.cores=core)
+  print("motifsegbinrf")
+  for(markcount in 1:markernum){
+    motifbincount(motifbinrftemp,reads[[markcount]],core,readlen,format,markcount,ratio[((markcount-1)*time):(markcount*time)])
+  }
+  print("motifbinreadcountrf")
+  motifrandomforestfdr=motifbinRFfdr(motifid1,motifsegs,markernum,motifbinnum)
+  print("motifrandomforestfdr")
+  for(i in 1:motifnum){
+    motifrandomforestfdr[[2]][[i]][is.na(motifrandomforestfdr[[2]][[i]])]=1
+    write.table(motifrandomforestfdr[[2]][[i]],paste("motif",motifname[i],"fdr.txt",sep="_"),quote=FALSE,sep="\t",row.names=FALSE,col.names=FALSE)
+  }
+  RFinnerprod=innerprocal(motifrandomforestfdr[[2]],0.01,histonemotifsegreads,1:markernum,motifbinnum)
+  print("RFinnerprod")
+  for(i in 1:motifnum){
+    write.table(RFinnerprod[[i]],paste("motif",motifname[i],"innerprod.txt",sep="_"),quote=FALSE,sep="\t",row.names=FALSE,col.names=FALSE)
+  }
+  for(i in 1:motifnum){
+    temp=t(scale(t(histonemotifsegreads[[1]][[i]])))
+    if(markernum>1){
+      for(markcount in 2:markernum){
+        temp=cbind(temp,t(scale(t(histonemotifsegreads[[markcount]][[i]]))))
+      }
+    }
+    write.table(round(temp,2),paste("motif_",motifname[i],"_readcount.txt",sep=""),sep="\t",row.names=TRUE,col.names=FALSE,quote=FALSE)
+  }
+  print("motifreadwrite")
+}
+
+DynaMO<-function(readlist,peak,motif,mode="l",core=1,readsmem=TRUE,readlen=150,readformat="bam",motiflen=300,motifbin=20,cluster=0,fdrcut=0.01,batch=TRUE){
     markernum=length(readlist)
     time=nrow(readlist[[1]])
     motifnum=length(motif)
@@ -621,9 +661,8 @@ DynaMO<-function(readlist,peak,motif,mode="l",core=1,readsmem=TRUE,readlen=150,r
         }
         motiffdrread=na.exclude(motiffdrread)
         if(cluster==0){
-            tempread=motiffdrread[sample(1:nrow(motiffdrread),min(c(nrow(motiffdrread),10000))),]
-            tempcls=pamk(tempread,2:20,usepam=FALSE)
-            clsnum=tempcls$nc
+            tempread=motiffdrread[sample(1:nrow(motiffdrread),min(c(nrow(motiffdrread),5000))),]
+            clsnum=clsnumcount(tempread)
         }else{
             clsnum=cluster
         }
@@ -638,4 +677,12 @@ DynaMO<-function(readlist,peak,motif,mode="l",core=1,readsmem=TRUE,readlen=150,r
         colnames(motiffdrclstest)=paste(rep(paste("cluster",1:clsnum)),rep(c("count","ratio","p-value","padj"),each=clsnum))
         write.table(motiffdrclstest,"motif_cluster_enrichment.txt",sep="\t",quote=FALSE)
     }
+}
+
+fitfunc <- function(expr,time) {
+  xseq <- seq(time[1],time[length(time)],length.out=1000)
+  predvalue <- predict(loess(expr~time),data.frame(time=xseq))
+  maximum <- xseq[which.max(predvalue)]
+  maxderivative <- xseq[which.max(diff(predvalue))]
+  list(maximum=maximum,maxderivative=maxderivative,fitted=data.frame(time=xseq,predict=predvalue),data=data.frame(time=time,expr=expr))
 }

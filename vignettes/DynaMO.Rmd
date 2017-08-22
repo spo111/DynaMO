@@ -71,7 +71,7 @@ With all input data, we can run DynaMO directly.
 ```{r, eval=TRUE}
 DynaMO(readlist=histonelist,peak=peak,motif=motif,mode="l",
        core=2,readsmem=TRUE,readlen=150,readformat="txt",
-       motiflen=300,motifbin=20,cluster=0,fdrcut=0.01)
+       motiflen=300,motifbin=20,cluster=2,fdrcut=0.01)
 ```
 
 DynaMO will automatically write the results in the current directory. Normalized read counts at motif sites are written in files named "motif_[motif index]_readcount.txt". Each row is a motif site and named by the index of motif sites. Each column is a sample. False discovery rates are written in files named "motif_[motif index]_fdr.txt". Rows are motif sites with the same order as readcount files and columns represent samples. Inner products are written in files named "motif_[motif index]_innerprod.txt". Rows are motif sites with the same order as readcount files and columns represent samples. Clustering information is written in a file named "motif_filter_reads_cluster.txt". Each row is a motif site and each column is a sample. The last three columns are cluster id, motif id and motif site id. Motif enrichment information is written in a file named "motif_cluster_enrichment.txt". Each row represents a motif site and each column represents either counts of motif sites, fold changes, p values and adjusted p values from one sample.
@@ -184,12 +184,9 @@ for(i in 1:motifnum){
 Another important feature of motif sites is the signal intensity of chromatin surrogates at motif sies. 
 
 ```{r, eval=TRUE}
-histonemotifsegreads<-vector("list",length=markernum)
-for(markcount in 1:markernum){
-  histonemotifsegreads[[markcount]]<-countmotifsegreads(
-    reads[[markcount]],motifsegs,readlen,
-  core,format,motifid0)
-}
+temp=countmotifsegreads(reads,motifsegs,readlen,core,format,motifid0,T)
+histonemotifsegreads=temp[[1]]
+ratio=temp[[2]]
 ```
 
 ### Select motif sites for random forest modeling
@@ -212,7 +209,7 @@ get.motifbintemp<-function(motifseg,bin=motifbin){
 motifbintemp<-mclapply(motifsegs,get.motifbintemp,mc.cores=core)
 for(markcount in 1:markernum){
     motifbincount(motifbintemp,reads[[markcount]],core,
-                  readlen,format,markcount)
+                  readlen,format,markcount,ratio[((markcount-1)*time):(markcount*time)])
 }
 ```
 
@@ -257,7 +254,7 @@ get.motifbinv2<-function(motifseg,bin=motifbin){
 motifbinrftemp<-mclapply(motifsegrf,get.motifbinv2,mc.cores=core)
 for(markcount in 1:markernum){
       motifbincount(motifbinrftemp,reads[[markcount]],core,
-                    readlen,format,markcount)
+                    readlen,format,markcount,ratio[((markcount-1)*time):(markcount*time)])
 }    
 ```
 
@@ -299,16 +296,14 @@ for(i in 1:motifnum){
 motiffdrread<-na.exclude(motiffdrread)
 ```
 
-Next, we perform Kmeans clustering. Users can either do automatic Kmeans or choose a specific value for the number of clusters. Here we use fpc to automatically generate the number of clusters.
+Next, we perform Kmeans clustering. Users can either do automatic Kmeans or choose a specific value for the number of clusters. 
 
 ```{r, eval=TRUE}
-library(fpc)
 cluster<-0
 #cluster=0 means automatic clustering
 if(cluster==0){
-        tempread<-motiffdrread[sample(1:nrow(motiffdrread),                                      min(c(nrow(motiffdrread),10000))),]
-        tempcls<-pamk(tempread,2:20,usepam=FALSE)
-        clsnum<-tempcls$nc
+        tempread<-motiffdrread[sample(1:nrow(motiffdrread),                                      min(c(nrow(motiffdrread),5000))),]
+        clsnum<-clsnumcount(tempread)
         }else{
             clsnum<-cluster
         }
@@ -328,8 +323,19 @@ Next, we perform fisher.exact test to find motifs with motif sites enriched in t
 ```{r, eval=TRUE}
 motiffdrclstest=motifclstest(motiffdrread1,1:motifnum)
 colnames(motiffdrclstest)=paste(rep(paste("cluster",1:clsnum))
-                            ,rep(c("count","ratio","p-value","padj"),each=4))
+                            ,rep(c("count","ratio","p-value","padj"),each=clsnum))
 ```
 
 Motifs enriched in any of the clusters are predicted to be important and the averaged pattern of read counts in the cluster which a motif is enriched reflects when the TF is mainly functional.
+
+Finally, we provide a function to fit dynamic curves and find the max, max derivative at each site.
+
+```{r}
+time1=c(0,1,2,3)
+fitted=fitfunc(motiffdrread[1,1:4],time1)
+plot(fitted$data)
+lines(fitted$fitted)
+abline(v=fitted$maximum,col="red")
+abline(v=fitted$maxderivative,col="blue")
+```
 

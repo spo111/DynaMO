@@ -1,6 +1,6 @@
 import('GenomicAlignments')
 import('randomForest')
-import('fpc')
+
 
 export(get.reads,get.motif,get.motifbin,countmotifsegreads,motifbincount,
-       motifRFid,motifbinRFfdr,innerprocal,motifclstest,DynaMO)
+       motifRFid,motifbinRFfdr,innerprocal,clsnumcount,motifclstest,DynaMO,DynaMOs,fitfunc)

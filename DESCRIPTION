@@ -5,7 +5,7 @@ Version: 0.99.0
 Date: 2015-07-23
 Author: Zheng Kuang, Hongkai Ji
 Maintainer: Zheng Kuang <kuangzheng04@gmail.com>
-Depends: R (>= 3.2), GenomicAlignments, randomForest, fpc
+Depends: R (>= 3.2), GenomicAlignments, randomForest
 Suggests: BayesPeak, knitr
 VignetteBuilder: knitr
 biocViews: ChIPSeq, Transcription, Epigenetics, GeneRegulation
